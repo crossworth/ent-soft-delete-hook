@@ -1,6 +1,6 @@
 module entgo.io/bug
 
-go 1.17
+go 1.18
 
 require (
 	entgo.io/ent v0.10.2-0.20220429094929-9d992c4f41ec

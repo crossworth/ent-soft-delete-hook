@@ -9,6 +9,32 @@ import (
 	"entgo.io/bug/ent"
 )
 
+// The OtherFunc type is an adapter to allow the use of ordinary
+// function as Other mutator.
+type OtherFunc func(context.Context, *ent.OtherMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f OtherFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	mv, ok := m.(*ent.OtherMutation)
+	if !ok {
+		return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.OtherMutation", m)
+	}
+	return f(ctx, mv)
+}
+
+// The TodoFunc type is an adapter to allow the use of ordinary
+// function as Todo mutator.
+type TodoFunc func(context.Context, *ent.TodoMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f TodoFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	mv, ok := m.(*ent.TodoMutation)
+	if !ok {
+		return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.TodoMutation", m)
+	}
+	return f(ctx, mv)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)

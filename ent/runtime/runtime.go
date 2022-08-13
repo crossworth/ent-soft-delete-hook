@@ -2,7 +2,23 @@
 
 package runtime
 
-// The schema-stitching logic is generated in entgo.io/bug/ent/runtime.go
+import (
+	"entgo.io/bug/ent/schema"
+	"entgo.io/bug/ent/todo"
+	"entgo.io/bug/ent/user"
+)
+
+// The init function reads all schema descriptors with runtime code
+// (default values, validators, hooks and policies) and stitches it
+// to their package variables.
+func init() {
+	todoMixin := schema.Todo{}.Mixin()
+	todoMixinHooks0 := todoMixin[0].Hooks()
+	todo.Hooks[0] = todoMixinHooks0[0]
+	userMixin := schema.User{}.Mixin()
+	userMixinHooks0 := userMixin[0].Hooks()
+	user.Hooks[0] = userMixinHooks0[0]
+}
 
 const (
 	Version = "v0.10.2-0.20220429094929-9d992c4f41ec"           // Version of ent codegen.

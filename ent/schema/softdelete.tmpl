@@ -1,0 +1,19 @@
+{{ define "softdelete" }}
+
+    {{ $pkg := base $.Config.Package }}
+    {{ template "header" $ }}
+
+    func SetDeletedTimeForType(ctx context.Context, c *Client, typ string, t time.Time, ids []int) error {
+        switch typ {
+        {{- range $n := $.Nodes }}
+            {{- if $n.Annotations.DeletedTime.OK -}}
+                case "{{ $n.Name }}":
+                return c.{{ $n.Name }}.Update().Where({{ $n.Name | lower }}.IDIn(ids...)).SetDeletedTime(t).Exec(ctx)
+            {{ end }}
+        {{- end }}
+        }
+
+        return fmt.Errorf("type (%s) not found", typ)
+    }
+
+{{ end }}

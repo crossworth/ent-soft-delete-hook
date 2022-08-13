@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/bug/ent/predicate"
 	"entgo.io/bug/ent/user"
@@ -24,6 +25,26 @@ type UserUpdate struct {
 // Where appends a list predicates to the UserUpdate builder.
 func (uu *UserUpdate) Where(ps ...predicate.User) *UserUpdate {
 	uu.mutation.Where(ps...)
+	return uu
+}
+
+// SetDeletedTime sets the "deleted_time" field.
+func (uu *UserUpdate) SetDeletedTime(t time.Time) *UserUpdate {
+	uu.mutation.SetDeletedTime(t)
+	return uu
+}
+
+// SetNillableDeletedTime sets the "deleted_time" field if the given value is not nil.
+func (uu *UserUpdate) SetNillableDeletedTime(t *time.Time) *UserUpdate {
+	if t != nil {
+		uu.SetDeletedTime(*t)
+	}
+	return uu
+}
+
+// ClearDeletedTime clears the value of the "deleted_time" field.
+func (uu *UserUpdate) ClearDeletedTime() *UserUpdate {
+	uu.mutation.ClearDeletedTime()
 	return uu
 }
 
@@ -123,6 +144,19 @@ func (uu *UserUpdate) sqlSave(ctx context.Context) (n int, err error) {
 			}
 		}
 	}
+	if value, ok := uu.mutation.DeletedTime(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: user.FieldDeletedTime,
+		})
+	}
+	if uu.mutation.DeletedTimeCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Column: user.FieldDeletedTime,
+		})
+	}
 	if value, ok := uu.mutation.Age(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
 			Type:   field.TypeInt,
@@ -161,6 +195,26 @@ type UserUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *UserMutation
+}
+
+// SetDeletedTime sets the "deleted_time" field.
+func (uuo *UserUpdateOne) SetDeletedTime(t time.Time) *UserUpdateOne {
+	uuo.mutation.SetDeletedTime(t)
+	return uuo
+}
+
+// SetNillableDeletedTime sets the "deleted_time" field if the given value is not nil.
+func (uuo *UserUpdateOne) SetNillableDeletedTime(t *time.Time) *UserUpdateOne {
+	if t != nil {
+		uuo.SetDeletedTime(*t)
+	}
+	return uuo
+}
+
+// ClearDeletedTime clears the value of the "deleted_time" field.
+func (uuo *UserUpdateOne) ClearDeletedTime() *UserUpdateOne {
+	uuo.mutation.ClearDeletedTime()
+	return uuo
 }
 
 // SetAge sets the "age" field.
@@ -282,6 +336,19 @@ func (uuo *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) 
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := uuo.mutation.DeletedTime(); ok {
+		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: user.FieldDeletedTime,
+		})
+	}
+	if uuo.mutation.DeletedTimeCleared() {
+		_spec.Fields.Clear = append(_spec.Fields.Clear, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Column: user.FieldDeletedTime,
+		})
 	}
 	if value, ok := uuo.mutation.Age(); ok {
 		_spec.Fields.Set = append(_spec.Fields.Set, &sqlgraph.FieldSpec{

@@ -6,5 +6,11 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Other is the predicate function for other builders.
+type Other func(*sql.Selector)
+
+// Todo is the predicate function for todo builders.
+type Todo func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)

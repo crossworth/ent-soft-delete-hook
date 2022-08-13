@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/bug/ent/user"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -17,6 +18,20 @@ type UserCreate struct {
 	config
 	mutation *UserMutation
 	hooks    []Hook
+}
+
+// SetDeletedTime sets the "deleted_time" field.
+func (uc *UserCreate) SetDeletedTime(t time.Time) *UserCreate {
+	uc.mutation.SetDeletedTime(t)
+	return uc
+}
+
+// SetNillableDeletedTime sets the "deleted_time" field if the given value is not nil.
+func (uc *UserCreate) SetNillableDeletedTime(t *time.Time) *UserCreate {
+	if t != nil {
+		uc.SetDeletedTime(*t)
+	}
+	return uc
 }
 
 // SetAge sets the "age" field.
@@ -134,6 +149,14 @@ func (uc *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			},
 		}
 	)
+	if value, ok := uc.mutation.DeletedTime(); ok {
+		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
+			Type:   field.TypeTime,
+			Value:  value,
+			Column: user.FieldDeletedTime,
+		})
+		_node.DeletedTime = value
+	}
 	if value, ok := uc.mutation.Age(); ok {
 		_spec.Fields = append(_spec.Fields, &sqlgraph.FieldSpec{
 			Type:   field.TypeInt,

@@ -22,3 +22,10 @@ func (User) Fields() []ent.Field {
 func (User) Edges() []ent.Edge {
 	return nil
 }
+
+// Mixin of the User.
+func (User) Mixin() []ent.Mixin {
+	return []ent.Mixin{
+		DeletedTime{},
+	}
+}
