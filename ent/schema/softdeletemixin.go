@@ -4,10 +4,12 @@ import (
 	"context"
 	"time"
 
-	entp "entgo.io/bug/ent"
+	gen "entgo.io/bug/ent"
+	"entgo.io/ent/entql"
+	"entgo.io/ent/schema"
+
 	"entgo.io/bug/ent/hook"
 	"entgo.io/ent"
-	"entgo.io/ent/schema"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/mixin"
 )
@@ -20,59 +22,57 @@ func (d DeletedTimeAnnotation) Name() string {
 	return "DeletedTime"
 }
 
-type DeletedTime struct {
+type SoftDeleteMixin struct {
 	mixin.Schema
 }
 
-func (DeletedTime) Fields() []ent.Field {
+func (SoftDeleteMixin) Fields() []ent.Field {
 	return []ent.Field{
 		field.Time("deleted_time").Optional(),
 	}
 }
 
-func (DeletedTime) Annotations() []schema.Annotation {
+func (SoftDeleteMixin) Annotations() []schema.Annotation {
 	return []schema.Annotation{
-		DeletedTimeAnnotation{
-			OK: true,
-		},
+		DeletedTimeAnnotation{OK: true},
 	}
 }
 
-type skipDeletedTimeHook struct{}
+type softDeleteKey struct{}
 
-func WithSkipDeletedTimeHook(ctx context.Context) context.Context {
-	return context.WithValue(ctx, skipDeletedTimeHook{}, true)
+// SkipSoftDelete returns a new context that skips the soft-delete interceptor/mutators.
+func SkipSoftDelete(parent context.Context) context.Context {
+	return context.WithValue(parent, softDeleteKey{}, true)
 }
 
-func (DeletedTime) Hooks() []ent.Hook {
+func (SoftDeleteMixin) Interceptors() []ent.Interceptor {
+	return []ent.Interceptor{
+		ent.TraverseFunc(func(ctx context.Context, q ent.Query) error {
+			if skip, _ := ctx.Value(softDeleteKey{}).(bool); skip {
+				return nil
+			}
+			if f, ok := gen.Filter(q).(interface {
+				WhereDeletedTime(p entql.TimeP)
+			}); ok {
+				f.WhereDeletedTime(entql.TimeNil())
+			}
+			return nil
+		}),
+	}
+}
+
+func (SoftDeleteMixin) Hooks() []ent.Hook {
 	return []ent.Hook{
-		hook.On(func(next ent.Mutator) ent.Mutator {
-			return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
-				_, skipDeletedTimeHook := ctx.Value(skipDeletedTimeHook{}).(bool)
-				if skipDeletedTimeHook {
-					return next.Mutate(ctx, m)
-				}
-
-				if idc, ok := m.(interface {
-					IDs(ctx context.Context) ([]int, error)
-					Client() *entp.Client
-				}); ok {
-					ids, err := idc.IDs(ctx)
-					if err != nil {
-						return nil, err
+		hook.On(
+			func(next ent.Mutator) ent.Mutator {
+				return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+					if skip, _ := ctx.Value(softDeleteKey{}).(bool); skip {
+						return next.Mutate(ctx, m)
 					}
-
-					err = entp.SetDeletedTimeForType(ctx, idc.Client(), m.Type(), time.Now(), ids)
-					if err != nil {
-						return nil, err
-					}
-
-					return len(ids), nil
-				}
-
-				return next.Mutate(ctx, m)
-			})
-		}, ent.OpDeleteOne|ent.OpDelete,
+					return gen.MarkAsDeleted(ctx, m, time.Now())
+				})
+			},
+			ent.OpDeleteOne|ent.OpDelete,
 		),
 	}
 }

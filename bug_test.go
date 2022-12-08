@@ -11,10 +11,12 @@ import (
 	"entgo.io/bug/ent/enttest"
 	_ "entgo.io/bug/ent/runtime"
 	"entgo.io/bug/ent/schema"
+	"entgo.io/bug/ent/user"
 	"entgo.io/ent/dialect"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBugSQLite(t *testing.T) {
@@ -56,35 +58,35 @@ func TestBugMaria(t *testing.T) {
 }
 
 func test(t *testing.T, client *ent.Client) {
-	client = client.Debug()
 	ctx := context.Background()
 
-	// driver.Query: query=INSERT INTO `users` (`age`, `name`) VALUES (?, ?) RETURNING `id` args=[30 Ariel]
 	u := client.User.Create().SetName("Ariel").SetAge(30).SaveX(ctx)
 
-	// driver.Query: query=SELECT COUNT(DISTINCT `users`.`id`) FROM `users` args=[]
 	if n := client.User.Query().CountX(ctx); n != 1 {
 		t.Errorf("unexpected number of users: %d", n)
 	}
 
-	// driver.Exec: query=UPDATE `users` SET `deleted_time` = ? WHERE `users`.`id` IN (?) args=[2022-08-13 20:36:57.943277 -0300 -03 m=+0.007749764 1]
-	client.User.DeleteOne(u).ExecX(ctx)
+	// driver.Query: query=SELECT `users`.`id` FROM `users` WHERE `users`.`name` = ? AND `users`.`deleted_time` IS NULL LIMIT 1 args=[Ariel]
+	exists := client.Debug().User.Query().Where(user.Name("Ariel")).ExistX(ctx)
+	require.True(t, exists)
 
-	// do a real delete op
-	// query=DELETE FROM `users` args=[]
-	_, err := client.User.Delete().Exec(schema.WithSkipDeletedTimeHook(ctx))
-	if err != nil {
-		t.Errorf("could not delete the users: %v", err)
-	}
+	// driver.Exec: query=UPDATE `users` SET `deleted_time` = ? WHERE `users`.`id` IN (?) args=[2022-12-08 14:23:35.446387627 -0300 -03 m=+0.003711003 1]
+	client.Debug().User.DeleteOne(u).ExecX(ctx)
 
-	// query=INSERT INTO `users` (`age`, `name`) VALUES (?, ?) RETURNING `id` args=[30 Ariel]
-	client.User.Create().SetName("Ariel").SetAge(30).SaveX(ctx)
+	// driver.Query: query=SELECT `users`.`id` FROM `users` WHERE `users`.`name` = ? AND `users`.`deleted_time` IS NULL LIMIT 1 args=[Ariel]
+	exists = client.Debug().User.Query().Where(user.Name("Ariel")).ExistX(ctx)
+	require.False(t, exists)
 
-	// query=INSERT INTO `users` (`age`, `name`) VALUES (?, ?) RETURNING `id` args=[28 Pedro]
-	client.User.Create().SetName("Pedro").SetAge(28).SaveX(ctx)
+	// skip
+	// driver.Query: query=SELECT `users`.`id` FROM `users` WHERE `users`.`name` = ? LIMIT 1 args=[Ariel]
+	exists = client.Debug().User.Query().Where(user.Name("Ariel")).ExistX(schema.SkipSoftDelete(ctx))
+	require.True(t, exists)
 
-	// Delete many
-	// query=SELECT `users`.`id` FROM `users` args=[]
-	// query=UPDATE `users` SET `deleted_time` = ? WHERE `users`.`id` IN (?, ?) args=[2022-08-13 20:42:34.613814 -0300 -03 m=+0.009210090 2 3]
-	client.User.Delete().ExecX(ctx)
+	// skip delete
+	// driver.Exec: query=DELETE FROM `users` WHERE `users`.`id` = ? args=[1]
+	client.Debug().User.DeleteOne(u).ExecX(schema.SkipSoftDelete(ctx))
+
+	// driver.Query: query=SELECT `users`.`id` FROM `users` WHERE `users`.`name` = ? LIMIT 1 args=[Ariel]
+	exists = client.Debug().User.Query().Where(user.Name("Ariel")).ExistX(schema.SkipSoftDelete(ctx))
+	require.False(t, exists)
 }

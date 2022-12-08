@@ -26,6 +26,6 @@ func (User) Edges() []ent.Edge {
 // Mixin of the User.
 func (User) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		DeletedTime{},
+		SoftDeleteMixin{},
 	}
 }

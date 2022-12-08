@@ -3,17 +3,44 @@
     {{ $pkg := base $.Config.Package }}
     {{ template "header" $ }}
 
-    func SetDeletedTimeForType(ctx context.Context, c *Client, typ string, t time.Time, ids []int) error {
-        switch typ {
+    import (
+        "entgo.io/ent"
+    )
+
+    func Filter(q Query) any {
+        switch v := q.(type) {
         {{- range $n := $.Nodes }}
-            {{- if $n.Annotations.DeletedTime.OK -}}
-                case "{{ $n.Name }}":
-                return c.{{ $n.Name }}.Update().Where({{ $n.Name | lower }}.IDIn(ids...)).SetDeletedTime(t).Exec(ctx)
-            {{ end }}
+        case *{{ $n.Name }}Query:
+            return v.Filter()
         {{- end }}
         }
+        return nil
+    }
 
-        return fmt.Errorf("type (%s) not found", typ)
+    func MarkAsDeleted(ctx context.Context, m ent.Mutation, t time.Time) (ent.Value, error) {
+        if p, ok := m.(interface {
+            IDs(ctx context.Context) ([]int, error)
+            Client() *Client
+        }); ok {
+            ids, err := p.IDs(ctx)
+            if err != nil {
+                return nil, err
+            }
+            switch m.Type() {
+            {{- range $n := $.Nodes }}
+                {{- if $n.Annotations.DeletedTime.OK -}}
+            case "{{ $n.Name }}":
+                if err := p.Client().{{ $n.Name }}.Update().Where({{ $n.Name | lower }}.IDIn(ids...)).SetDeletedTime(t).Exec(ctx); err != nil {
+                return nil, err
+            }
+                {{ end }}
+            {{- end -}}
+            default:
+                return nil, fmt.Errorf("invalid case, %q is not using softdelete", m.Type())
+            }
+            return len(ids), nil
+        }
+        return nil, fmt.Errorf("invalid type assertion")
     }
 
 {{ end }}

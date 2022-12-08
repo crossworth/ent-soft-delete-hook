@@ -25,6 +25,6 @@ func (Todo) Edges() []ent.Edge {
 // Mixin of the Todo.
 func (Todo) Mixin() []ent.Mixin {
 	return []ent.Mixin{
-		DeletedTime{},
+		SoftDeleteMixin{},
 	}
 }
