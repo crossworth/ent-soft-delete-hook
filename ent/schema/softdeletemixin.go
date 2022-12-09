@@ -5,7 +5,6 @@ import (
 	"time"
 
 	gen "entgo.io/bug/ent"
-	"entgo.io/ent/entql"
 	"entgo.io/ent/schema"
 
 	"entgo.io/bug/ent/hook"
@@ -28,7 +27,7 @@ type SoftDeleteMixin struct {
 
 func (SoftDeleteMixin) Fields() []ent.Field {
 	return []ent.Field{
-		field.Time("deleted_time").Optional(),
+		field.Time("deleted_time").Optional().Nillable(),
 	}
 }
 
@@ -51,11 +50,7 @@ func (SoftDeleteMixin) Interceptors() []ent.Interceptor {
 			if skip, _ := ctx.Value(softDeleteKey{}).(bool); skip {
 				return nil
 			}
-			if f, ok := gen.Filter(q).(interface {
-				WhereDeletedTime(p entql.TimeP)
-			}); ok {
-				f.WhereDeletedTime(entql.TimeNil())
-			}
+			gen.FilterDeleted(q)
 			return nil
 		}),
 	}

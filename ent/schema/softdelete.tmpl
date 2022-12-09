@@ -7,14 +7,20 @@
         "entgo.io/ent"
     )
 
-    func Filter(q Query) any {
+    func FilterDeleted(q Query) {
         switch v := q.(type) {
         {{- range $n := $.Nodes }}
+            {{- if $n.Annotations.DeletedTime.OK -}}
         case *{{ $n.Name }}Query:
-            return v.Filter()
-        {{- end }}
+            v.Filter().WhereDeletedTime(entql.TimeNil())
+            {{- range $e := $n.Edges }}
+                if v.with{{ $e.Name | pascal }} != nil {
+                    FilterDeleted(v.with{{ $e.Name | pascal }})
+                }
+            {{- end }}
+            {{ end -}}
+        {{- end -}}
         }
-        return nil
     }
 
     func MarkAsDeleted(ctx context.Context, m ent.Mutation, t time.Time) (ent.Value, error) {
@@ -31,8 +37,8 @@
                 {{- if $n.Annotations.DeletedTime.OK -}}
             case "{{ $n.Name }}":
                 if err := p.Client().{{ $n.Name }}.Update().Where({{ $n.Name | lower }}.IDIn(ids...)).SetDeletedTime(t).Exec(ctx); err != nil {
-                return nil, err
-            }
+                    return nil, err
+                }
                 {{ end }}
             {{- end -}}
             default:

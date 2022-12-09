@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"entgo.io/bug/ent/todo"
+	"entgo.io/bug/ent/user"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 )
@@ -38,6 +39,25 @@ func (tc *TodoCreate) SetNillableDeletedTime(t *time.Time) *TodoCreate {
 func (tc *TodoCreate) SetName(s string) *TodoCreate {
 	tc.mutation.SetName(s)
 	return tc
+}
+
+// SetCreatorID sets the "creator" edge to the User entity by ID.
+func (tc *TodoCreate) SetCreatorID(id int) *TodoCreate {
+	tc.mutation.SetCreatorID(id)
+	return tc
+}
+
+// SetNillableCreatorID sets the "creator" edge to the User entity by ID if the given value is not nil.
+func (tc *TodoCreate) SetNillableCreatorID(id *int) *TodoCreate {
+	if id != nil {
+		tc = tc.SetCreatorID(*id)
+	}
+	return tc
+}
+
+// SetCreator sets the "creator" edge to the User entity.
+func (tc *TodoCreate) SetCreator(u *User) *TodoCreate {
+	return tc.SetCreatorID(u.ID)
 }
 
 // Mutation returns the TodoMutation object of the builder.
@@ -148,11 +168,31 @@ func (tc *TodoCreate) createSpec() (*Todo, *sqlgraph.CreateSpec) {
 	)
 	if value, ok := tc.mutation.DeletedTime(); ok {
 		_spec.SetField(todo.FieldDeletedTime, field.TypeTime, value)
-		_node.DeletedTime = value
+		_node.DeletedTime = &value
 	}
 	if value, ok := tc.mutation.Name(); ok {
 		_spec.SetField(todo.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if nodes := tc.mutation.CreatorIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   todo.CreatorTable,
+			Columns: []string{todo.CreatorColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: &sqlgraph.FieldSpec{
+					Type:   field.TypeInt,
+					Column: user.FieldID,
+				},
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.user_todos = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

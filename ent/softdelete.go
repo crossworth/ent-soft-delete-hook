@@ -7,21 +7,34 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/bug/ent/group"
 	"entgo.io/bug/ent/todo"
 	"entgo.io/bug/ent/user"
 	"entgo.io/ent"
+	"entgo.io/ent/entql"
 )
 
-func Filter(q Query) any {
+func FilterDeleted(q Query) {
 	switch v := q.(type) {
-	case *OtherQuery:
-		return v.Filter()
+	case *GroupQuery:
+		v.Filter().WhereDeletedTime(entql.TimeNil())
+		if v.withUsers != nil {
+			FilterDeleted(v.withUsers)
+		}
 	case *TodoQuery:
-		return v.Filter()
+		v.Filter().WhereDeletedTime(entql.TimeNil())
+		if v.withCreator != nil {
+			FilterDeleted(v.withCreator)
+		}
 	case *UserQuery:
-		return v.Filter()
+		v.Filter().WhereDeletedTime(entql.TimeNil())
+		if v.withGroups != nil {
+			FilterDeleted(v.withGroups)
+		}
+		if v.withTodos != nil {
+			FilterDeleted(v.withTodos)
+		}
 	}
-	return nil
 }
 
 func MarkAsDeleted(ctx context.Context, m ent.Mutation, t time.Time) (ent.Value, error) {
@@ -34,6 +47,10 @@ func MarkAsDeleted(ctx context.Context, m ent.Mutation, t time.Time) (ent.Value,
 			return nil, err
 		}
 		switch m.Type() {
+		case "Group":
+			if err := p.Client().Group.Update().Where(group.IDIn(ids...)).SetDeletedTime(t).Exec(ctx); err != nil {
+				return nil, err
+			}
 		case "Todo":
 			if err := p.Client().Todo.Update().Where(todo.IDIn(ids...)).SetDeletedTime(t).Exec(ctx); err != nil {
 				return nil, err

@@ -3,7 +3,9 @@
 package ent
 
 import (
+	"entgo.io/bug/ent/group"
 	"entgo.io/bug/ent/other"
+	"entgo.io/bug/ent/predicate"
 	"entgo.io/bug/ent/todo"
 	"entgo.io/bug/ent/user"
 
@@ -15,8 +17,23 @@ import (
 
 // schemaGraph holds a representation of ent/schema at runtime.
 var schemaGraph = func() *sqlgraph.Schema {
-	graph := &sqlgraph.Schema{Nodes: make([]*sqlgraph.Node, 3)}
+	graph := &sqlgraph.Schema{Nodes: make([]*sqlgraph.Node, 4)}
 	graph.Nodes[0] = &sqlgraph.Node{
+		NodeSpec: sqlgraph.NodeSpec{
+			Table:   group.Table,
+			Columns: group.Columns,
+			ID: &sqlgraph.FieldSpec{
+				Type:   field.TypeInt,
+				Column: group.FieldID,
+			},
+		},
+		Type: "Group",
+		Fields: map[string]*sqlgraph.FieldSpec{
+			group.FieldDeletedTime: {Type: field.TypeTime, Column: group.FieldDeletedTime},
+			group.FieldName:        {Type: field.TypeString, Column: group.FieldName},
+		},
+	}
+	graph.Nodes[1] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   other.Table,
 			Columns: other.Columns,
@@ -30,7 +47,7 @@ var schemaGraph = func() *sqlgraph.Schema {
 			other.FieldName: {Type: field.TypeString, Column: other.FieldName},
 		},
 	}
-	graph.Nodes[1] = &sqlgraph.Node{
+	graph.Nodes[2] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   todo.Table,
 			Columns: todo.Columns,
@@ -45,7 +62,7 @@ var schemaGraph = func() *sqlgraph.Schema {
 			todo.FieldName:        {Type: field.TypeString, Column: todo.FieldName},
 		},
 	}
-	graph.Nodes[2] = &sqlgraph.Node{
+	graph.Nodes[3] = &sqlgraph.Node{
 		NodeSpec: sqlgraph.NodeSpec{
 			Table:   user.Table,
 			Columns: user.Columns,
@@ -61,6 +78,54 @@ var schemaGraph = func() *sqlgraph.Schema {
 			user.FieldName:        {Type: field.TypeString, Column: user.FieldName},
 		},
 	}
+	graph.MustAddE(
+		"users",
+		&sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   group.UsersTable,
+			Columns: group.UsersPrimaryKey,
+			Bidi:    false,
+		},
+		"Group",
+		"User",
+	)
+	graph.MustAddE(
+		"creator",
+		&sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   todo.CreatorTable,
+			Columns: []string{todo.CreatorColumn},
+			Bidi:    false,
+		},
+		"Todo",
+		"User",
+	)
+	graph.MustAddE(
+		"groups",
+		&sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   user.GroupsTable,
+			Columns: user.GroupsPrimaryKey,
+			Bidi:    false,
+		},
+		"User",
+		"Group",
+	)
+	graph.MustAddE(
+		"todos",
+		&sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.TodosTable,
+			Columns: []string{user.TodosColumn},
+			Bidi:    false,
+		},
+		"User",
+		"Todo",
+	)
 	return graph
 }()
 
@@ -68,6 +133,70 @@ var schemaGraph = func() *sqlgraph.Schema {
 // All update, update-one and query builders implement this interface.
 type predicateAdder interface {
 	addPredicate(func(s *sql.Selector))
+}
+
+// addPredicate implements the predicateAdder interface.
+func (gq *GroupQuery) addPredicate(pred func(s *sql.Selector)) {
+	gq.predicates = append(gq.predicates, pred)
+}
+
+// Filter returns a Filter implementation to apply filters on the GroupQuery builder.
+func (gq *GroupQuery) Filter() *GroupFilter {
+	return &GroupFilter{config: gq.config, predicateAdder: gq}
+}
+
+// addPredicate implements the predicateAdder interface.
+func (m *GroupMutation) addPredicate(pred func(s *sql.Selector)) {
+	m.predicates = append(m.predicates, pred)
+}
+
+// Filter returns an entql.Where implementation to apply filters on the GroupMutation builder.
+func (m *GroupMutation) Filter() *GroupFilter {
+	return &GroupFilter{config: m.config, predicateAdder: m}
+}
+
+// GroupFilter provides a generic filtering capability at runtime for GroupQuery.
+type GroupFilter struct {
+	predicateAdder
+	config
+}
+
+// Where applies the entql predicate on the query filter.
+func (f *GroupFilter) Where(p entql.P) {
+	f.addPredicate(func(s *sql.Selector) {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[0].Type, p, s); err != nil {
+			s.AddError(err)
+		}
+	})
+}
+
+// WhereID applies the entql int predicate on the id field.
+func (f *GroupFilter) WhereID(p entql.IntP) {
+	f.Where(p.Field(group.FieldID))
+}
+
+// WhereDeletedTime applies the entql time.Time predicate on the deleted_time field.
+func (f *GroupFilter) WhereDeletedTime(p entql.TimeP) {
+	f.Where(p.Field(group.FieldDeletedTime))
+}
+
+// WhereName applies the entql string predicate on the name field.
+func (f *GroupFilter) WhereName(p entql.StringP) {
+	f.Where(p.Field(group.FieldName))
+}
+
+// WhereHasUsers applies a predicate to check if query has an edge users.
+func (f *GroupFilter) WhereHasUsers() {
+	f.Where(entql.HasEdge("users"))
+}
+
+// WhereHasUsersWith applies a predicate to check if query has an edge users with a given conditions (other predicates).
+func (f *GroupFilter) WhereHasUsersWith(preds ...predicate.User) {
+	f.Where(entql.HasEdgeWith("users", sqlgraph.WrapFunc(func(s *sql.Selector) {
+		for _, p := range preds {
+			p(s)
+		}
+	})))
 }
 
 // addPredicate implements the predicateAdder interface.
@@ -99,7 +228,7 @@ type OtherFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *OtherFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[0].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[1].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -144,7 +273,7 @@ type TodoFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *TodoFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[1].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[2].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -163,6 +292,20 @@ func (f *TodoFilter) WhereDeletedTime(p entql.TimeP) {
 // WhereName applies the entql string predicate on the name field.
 func (f *TodoFilter) WhereName(p entql.StringP) {
 	f.Where(p.Field(todo.FieldName))
+}
+
+// WhereHasCreator applies a predicate to check if query has an edge creator.
+func (f *TodoFilter) WhereHasCreator() {
+	f.Where(entql.HasEdge("creator"))
+}
+
+// WhereHasCreatorWith applies a predicate to check if query has an edge creator with a given conditions (other predicates).
+func (f *TodoFilter) WhereHasCreatorWith(preds ...predicate.User) {
+	f.Where(entql.HasEdgeWith("creator", sqlgraph.WrapFunc(func(s *sql.Selector) {
+		for _, p := range preds {
+			p(s)
+		}
+	})))
 }
 
 // addPredicate implements the predicateAdder interface.
@@ -194,7 +337,7 @@ type UserFilter struct {
 // Where applies the entql predicate on the query filter.
 func (f *UserFilter) Where(p entql.P) {
 	f.addPredicate(func(s *sql.Selector) {
-		if err := schemaGraph.EvalP(schemaGraph.Nodes[2].Type, p, s); err != nil {
+		if err := schemaGraph.EvalP(schemaGraph.Nodes[3].Type, p, s); err != nil {
 			s.AddError(err)
 		}
 	})
@@ -218,4 +361,32 @@ func (f *UserFilter) WhereAge(p entql.IntP) {
 // WhereName applies the entql string predicate on the name field.
 func (f *UserFilter) WhereName(p entql.StringP) {
 	f.Where(p.Field(user.FieldName))
+}
+
+// WhereHasGroups applies a predicate to check if query has an edge groups.
+func (f *UserFilter) WhereHasGroups() {
+	f.Where(entql.HasEdge("groups"))
+}
+
+// WhereHasGroupsWith applies a predicate to check if query has an edge groups with a given conditions (other predicates).
+func (f *UserFilter) WhereHasGroupsWith(preds ...predicate.Group) {
+	f.Where(entql.HasEdgeWith("groups", sqlgraph.WrapFunc(func(s *sql.Selector) {
+		for _, p := range preds {
+			p(s)
+		}
+	})))
+}
+
+// WhereHasTodos applies a predicate to check if query has an edge todos.
+func (f *UserFilter) WhereHasTodos() {
+	f.Where(entql.HasEdge("todos"))
+}
+
+// WhereHasTodosWith applies a predicate to check if query has an edge todos with a given conditions (other predicates).
+func (f *UserFilter) WhereHasTodosWith(preds ...predicate.Todo) {
+	f.Where(entql.HasEdgeWith("todos", sqlgraph.WrapFunc(func(s *sql.Selector) {
+		for _, p := range preds {
+			p(s)
+		}
+	})))
 }

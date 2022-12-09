@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"entgo.io/bug/ent/group"
 	"entgo.io/bug/ent/schema"
 	"entgo.io/bug/ent/todo"
 	"entgo.io/bug/ent/user"
@@ -12,6 +13,11 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	groupMixin := schema.Group{}.Mixin()
+	groupMixinHooks0 := groupMixin[0].Hooks()
+	group.Hooks[0] = groupMixinHooks0[0]
+	groupMixinInters0 := groupMixin[0].Interceptors()
+	group.Interceptors[0] = groupMixinInters0[0]
 	todoMixin := schema.Todo{}.Mixin()
 	todoMixinHooks0 := todoMixin[0].Hooks()
 	todo.Hooks[0] = todoMixinHooks0[0]
